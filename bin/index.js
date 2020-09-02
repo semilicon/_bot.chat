@@ -5,16 +5,19 @@ import { version } from '../package.json'
 info(`secretlounge v${version} starting`)
 
 import config from '../config.json'
+global.config=config;
 global.btoken=Number(config.token.split(':')[0]);
 import { connect } from 'coffea'
-const networks = connect(config)
 
 const { ClickHouse } = require('clickhouse');
+const include = require(__path+'lib/include.lib.js');
+const msgs  = require(__path+'lib/messages.lib.js');
+const icLib  = require(__path+'spaces/lib/infocollect.lib.js');
 global.clickhouse = new ClickHouse({
   debug: false,
   basicAuth: {
-      username: 'root',
-      password: 'WERA34QWERTYpq',
+      username: config.clickhouse['bot_chat'].user,
+      password: config.clickhouse['bot_chat'].password,
   },
   isUseGzip: false,
   format: "json",
@@ -25,7 +28,12 @@ global.clickhouse = new ClickHouse({
       database                                : 'bot_chat',
   }
 });
-
+global.pgToolsLib=require(__path+"lib/dbtools.postgresql.lib.js");
+global.DB=pgToolsLib.newPostgresPool('bot_chat');
+const startDB=async function(callback){
+  (await PS(pgToolsLib,pgToolsLib.postgresConnect)(DB));
+  if(typeof callback!="undefined")callback();
+}
 import {
   htmlMessage, cursive,
   getUsername, getUsernameFromEvent, getRealnameFromEvent,
@@ -44,6 +52,8 @@ import {
   getSystemConfig, rmWarning, addKarma, karmaOptedOut
 } from './db'
 import commands from './commands'
+
+const spaces  = include.actionsTree(__path+'spaces');
 import { HOURS } from './time'
 import {
   LINK_REGEX,
@@ -59,10 +69,10 @@ import {
 } from './constants'
 
 // run a check to see if any warnings need removed every half hour
-setInterval(() => {
-  getUsers().map((user) => {
+setInterval(async () => {
+  (await getUsers()).map(async(user) => {
     if (user.warnUpdated + WARN_EXPIRE <= Date.now()) {
-      rmWarning(user.id)
+      await rmWarning(user.id)
     }
   })
 }, 0.5 * HOURS)
@@ -120,14 +130,14 @@ export const sendTo = (users, rawEvent, alwaysSend = false) => {
               delCache(msg.message_id)
             }, 24 * HOURS)
           })
-          .catch((err) => {
+          .catch(async (err) => {
             if (err && (
               err.message === '403 {"ok":false,"error_code":403,"description":"Bot was blocked by the user"}' ||
               err.message === '403 {"ok":false,"error_code":403,"description":"Forbidden: user is deactivated"}' ||
               err.message === '400 {"ok":false,"error_code":400,"description":"PEER_ID_INVALID"}'
             )) {
               info('user (%o) blocked the bot (or user is deactivated), removing from the chat', user)
-              delUser(user.id)
+              await delUser(user.id)
             } else {
               warn('message not sent to user (%o): %o', user, err)
             }
@@ -145,28 +155,28 @@ export const sendToUser = (id, rawEvent) =>
     true // alwaysSend
   )
 
-export const sendToAll = (rawEvent) =>
+export const sendToAll = async (rawEvent) =>
   sendTo(
-    getUsers(),
+    await getUsers('status>0'),
     rawEvent
   )
 
-export const sendToMods = (rawEvent) =>
+export const sendToMods = async (rawEvent) =>
   sendTo(
-    getUsers().filter(u => u.rank >= RANKS.mod),
+    (await getUsers()).filter(u => u.rank >= RANKS.mod),
     rawEvent
   )
 
-export const sendToAdmins = (rawEvent) =>
+export const sendToAdmins = async (rawEvent) =>
   sendTo(
-    getUsers().filter(u => u.rank >= RANKS.admin),
+    (await getUsers()).filter(u => u.rank >= RANKS.admin),
     rawEvent
   )
 
 const relay = (type) => {
   networks.on(type, async (evt, reply) => {
     
-    const user = getUser(evt.user)
+    var user = await getUser(evt.user)
     if (user && user.rank < 0) return reply(cursive(blacklisted(user && user.reason)))
     let ldat={
       btoken:btoken,
@@ -216,33 +226,30 @@ const relay = (type) => {
     for(let key in ldat){
       ldatkeys.push(key)
     }
-    await clickhouse.insert('INSERT INTO messages_log ('+ldatkeys.join(',')+')',ldat).toPromise();
+    
+    
     if (type !== 'message' || (evt && evt.text && evt.text.charAt(0) !== '/')) { // don't parse commands again
-      if ((evt && evt.text === '+1') && (evt && evt.raw && evt.raw.reply_to_message)) {
-        return handleKarma(evt, reply)
-      }
-      const user = getUser(evt.user)
+      await clickhouse.insert('INSERT INTO messages_log ('+ldatkeys.join(',')+')',ldat).toPromise();
       if (!isActive(user)) { // make sure user is in the group chat
         return reply(cursive(USER_NOT_IN_CHAT))
-      } else if (user && user.banned >= Date.now()) {
+      }else if (user && user.banned >= Date.now()) {
         return reply(cursive(USER_BANNED_FROM_CHAT + ' ' + stringifyTimestamp(user.banned)))
+      }else if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
+        return spaces[user.space].message(user, evt, function(msg){msg=getKeyboard(msg,user);reply(msg);});
       }
-
-      if ((user.spamScore + calcSpamScore(evt)) > SPAM_LIMIT) return reply(cursive(USER_SPAMMING))
-      else increaseSpamScore(user, evt)
-
+      
       sendToAll(evt)
     }
   })
 }
 
-['message', 'audio', 'document', 'photo', 'sticker', 'video', 'voice'].map(relay)
 
-const updateUserFromEvent = (evt) => {
-  const user = getUser(evt.user)
+
+const updateUserFromEvent = async (evt) => {
+  const user = await getUser(evt.user)
   if (user) {
     if (evt && evt.raw && evt.raw.from) {
-      return updateUser(user.id, {
+      return await updateUser(user.id, {
         username: getUsernameFromEvent(evt),
         realname: getRealnameFromEvent(evt)
       })
@@ -267,22 +274,22 @@ const calcSpamScore = (evt) => {
   }
 }
 
-const increaseSpamScore = (user, evt) => {
+const increaseSpamScore = async(user, evt) => {
   const incSpamScore = calcSpamScore(evt)
   const newSpamScore =
     (user.spamScore + incSpamScore) >= SPAM_LIMIT
     ? SPAM_LIMIT_HIT
     : user.spamScore + incSpamScore
 
-  return updateUser(user.id, {
+  return await updateUser(user.id, {
     spamScore: newSpamScore
   })
 }
 
-const decreaseSpamScores = () => {
-  const users = getUsers()
-  return users.map((user) => {
-    return updateUser(user.id, {
+const decreaseSpamScores = async () => {
+  const users = await getUsers()
+  return users.map(async(user) => {
+    return await updateUser(user.id, {
       spamScore: user.spamScore > 0 ? user.spamScore - 1 : 0
     })
   })
@@ -290,21 +297,8 @@ const decreaseSpamScores = () => {
 
 setInterval(decreaseSpamScores, SPAM_INTERVAL)
 
-const showChangelog = (evt, reply) => {
-  const user = getUser(evt.user)
-  if (user) {
-    if (user.version !== version) {
-      updateUser(user.id, { version })
-      const tag = 'v' + version.split('-').shift()
-      reply(htmlMessage(
-        `<i>a new version has been released (</i><b>${version}</b><i>), ` +
-        `check out</i> https://github.com/6697/secretlounge/releases/tag/${tag}`
-      ))
-    }
-  }
-}
 
-const handleKarma = (evt, reply) => {
+const handleKarma = async(evt, reply) => {
   const user = getUser(evt && evt.user)
   const replyId = evt && evt.raw && evt.raw.reply_to_message && evt.raw.reply_to_message.message_id
   const { sender: receiver } = getFromCache(evt, reply)
@@ -312,9 +306,9 @@ const handleKarma = (evt, reply) => {
   if (replyId) {
     if (receiver !== user.id) {
       if (!hasUpvoted(replyId, user.id)) {
-        addKarma(receiver, KARMA_PLUS_ONE)
+        await addKarma(receiver, KARMA_PLUS_ONE)
         addUpvote(replyId, user.id)
-        if (!karmaOptedOut(receiver)) {
+        if (!await karmaOptedOut(receiver)) {
           sendToUser(receiver, {
             ...cursive(YOU_HAVE_KARMA),
             options: {
@@ -334,38 +328,66 @@ const handleKarma = (evt, reply) => {
     reply(cursive(ERR_NO_REPLY))
   }
 }
-
-networks.on('command', async (evt, reply) => {
-  //log('received command event: %o', evt)
-  await clickhouse.insert('INSERT INTO commands_log (btoken, date, user_id,message_id,cmd,args)',{btoken:btoken,date:evt.raw.date,user_id:evt.user,message_id:evt.raw.message_id,cmd:evt.cmd,args:evt.args}).toPromise();
-  const user = getUser(evt.user)
-  if (evt && evt.cmd) evt.cmd = evt.cmd.toLowerCase()
-  if (user && user.rank < 0) return reply(cursive(blacklisted(user && user.reason)))
-
-  if (evt && evt.cmd === 'start') {
-    if (isActive(user)) return reply(cursive(USER_IN_CHAT))
-    else if (!user) addUser(evt.user,evt)
-    else rejoinUser(evt.user)
-
-    reply(cursive('You joined the chat!'))
-
-    const newUser = updateUserFromEvent(evt)
-
-    // make first user admin
-    if (getUsers().length === 1) setRank(evt.user, RANKS.admin)
-
-    const motd = getSystemConfig().motd
-    if (motd) reply(cursive(motd))
-  } else if (evt && evt.cmd === '+1') {
-    handleKarma(evt, reply)
-  } else {
-    if (!user) return reply(cursive(USER_NOT_IN_CHAT))
-
-    commands(user, evt, reply)
+export const getKeyboard=async (msg,user) =>{
+  user=await getUser(user.id);
+  if(!user.keyboard||user.keyboard==''){
+    var keyboard={remove_keyboard:true};
+  }else{
+    var keyboard={
+      "keyboard": JSON.parse(user.keyboard),
+      resize_keyboard:true
+    };
   }
-})
+  if(typeof msg=='object'){
+    if(!msg.options)msg.options={};
+    msg.options.reply_markup=JSON.stringify(keyboard);
+    return msg;
+  }else if(typeof msg=='string'){
+    return {
+      type: 'message',
+      text: msg,
+      options: {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard)
+      }
+    }
+  }
+}
+var networks=null;
+startDB(function(){
+  networks = connect(config);
+  ['message', 'audio', 'document', 'photo', 'sticker', 'video', 'voice','location'].map(relay);
 
-networks.on('message', (evt, reply) => {
-  updateUserFromEvent(evt)
-  showChangelog(evt, reply)
-})
+  networks.on('command', async (evt, reply) => {
+    //log('received command event: %o', evt)
+    await clickhouse.insert('INSERT INTO commands_log (btoken, date, user_id,message_id,cmd,args)',{btoken:btoken,date:evt.raw.date,user_id:evt.user,message_id:evt.raw.message_id,cmd:evt.cmd,args:evt.args}).toPromise();
+    var user = await getUser(evt.user)
+    if (evt && evt.cmd) evt.cmd = evt.cmd.toLowerCase()
+    if (user && user.rank < 0) return reply(cursive(blacklisted(user && user.reason)))
+    if (evt && evt.cmd === 'start') {
+      if (isActive(user)){
+        reply(cursive('Ты уже в чате'))
+        if(user.space=='infocollect') await icLib.sendCurrentQuestion(async function(msg){msg=await getKeyboard(msg,user);reply(msg);}, user);
+        return;
+      }
+      else if (!user) await addUser(evt.user,evt)
+      else await rejoinUser(evt.user)
+  
+      reply(cursive(msgs.afterStart));
+      if(!user)user = await getUser(evt.user);
+      if(user.space=='infocollect') await icLib.sendCurrentQuestion(async function(msg){msg=await getKeyboard(msg,user);reply(msg);}, user);
+      return;
+    }
+    if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
+      return spaces[user.space].command(user, evt, function(msg){msg=getKeyboard(msg,user);reply(msg);});
+    }else{
+      commands(user, evt, reply)
+    }
+
+  })
+  
+  networks.on('message', async (evt, reply) => {
+    await updateUserFromEvent(evt)
+  })
+});
+

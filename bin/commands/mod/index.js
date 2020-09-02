@@ -10,11 +10,11 @@ import {
 import { getFromCache, getCacheGroup, setWarnedFlag, hasWarnedFlag } from '../../cache'
 import {
   getUser, getUsers, getUserByUsername,
-  addWarning, rmKarma, blockUser, blacklistUser
+  addWarning, rmKarma, blacklistUser
 } from '../../db'
 
-export default function modCommands (user, evt, reply) {
-  const messageRepliedTo = getFromCache(evt, reply)
+export default async function modCommands (user, evt, reply) {
+  const messageRepliedTo = getFromCache(evt, reply);
   const msgId = evt && evt.raw && evt.raw.reply_to_message && evt.raw.reply_to_message.message_id
 
   switch (evt.cmd) {
@@ -25,7 +25,7 @@ export default function modCommands (user, evt, reply) {
       break
 
     case 'users':
-      const users = getUsers()
+      const users = await getUsers()
       reply(htmlMessage(
         usersText(users, true)
       ))
@@ -34,7 +34,7 @@ export default function modCommands (user, evt, reply) {
     case 'info':
       if (evt && evt.raw && evt.raw.reply_to_message) {
         if (messageRepliedTo) {
-          const user = getUser(messageRepliedTo.sender)
+          const user = await getUser(messageRepliedTo.sender)
           reply(htmlMessage(
             modInfoText(user)
           ))
@@ -44,13 +44,12 @@ export default function modCommands (user, evt, reply) {
 
     case 'delete':
       let replyCache = getCacheGroup(msgId)
-
       if (messageRepliedTo) {
         info('%o deleted message', user)
         if (!hasWarnedFlag(msgId)) {
-          const cooldownTime = addWarning(messageRepliedTo.sender)
+          const cooldownTime = await addWarning(messageRepliedTo.sender)
 
-          rmKarma(messageRepliedTo.sender, KARMA_PENALTY_WARN)
+          await rmKarma(messageRepliedTo.sender, KARMA_PENALTY_WARN)
           setWarnedFlag(msgId)
 
           sendToUser(messageRepliedTo.sender, {
@@ -61,7 +60,7 @@ export default function modCommands (user, evt, reply) {
             }
           })
         }
-        getUsers().map((user) => {
+        (await getUsers()).map((user) => {
           if (messageRepliedTo.sender !== user.id) {
             reply({
               type: 'deleteMessage',
@@ -80,8 +79,8 @@ export default function modCommands (user, evt, reply) {
       if (messageRepliedTo) {
         if (!hasWarnedFlag(msgId)) {
           info('%o warned message', user)
-          const cooldownTime = addWarning(messageRepliedTo.sender)
-          rmKarma(messageRepliedTo.sender, KARMA_PENALTY_WARN)
+          const cooldownTime = await addWarning(messageRepliedTo.sender)
+          await rmKarma(messageRepliedTo.sender, KARMA_PENALTY_WARN)
           setWarnedFlag(msgId)
           sendToUser(messageRepliedTo.sender, {
             ...cursive(handedCooldown(cooldownTime)),
@@ -100,17 +99,18 @@ export default function modCommands (user, evt, reply) {
       break
     case 'blacklist':
       if(!messageRepliedTo&&evt.args.length >0){
-        let user=getUserByUsername(evt.args[0]);
+        let user=await getUserByUsername(evt.args[0]);
         evt.args.splice(0, 1);
-        blacklistUser(user.id, evt.args.join(' '))
+        await blacklistUser(user.id, evt.args.join(' '))
         sendToUser(user.id, blacklisted(evt.args.join(' ')))
         reply(cursive('User blocked;'))
       }else if (evt && evt.raw && evt.raw.reply_to_message) {
         if (evt.args.length < 1) evt.args=[''];
         if (messageRepliedTo) {
           let replyCache = getCacheGroup(msgId)
-          const user = getUser(messageRepliedTo.sender)
-          getUsers().map((user) => {
+          const user = await getUser(messageRepliedTo.sender)
+          let users=(await getUsers());
+          users.map((user) => {
             if (messageRepliedTo.sender !== user.id) {
               reply({
                 type: 'deleteMessage',
@@ -119,7 +119,7 @@ export default function modCommands (user, evt, reply) {
               })
             }
           })
-          blacklistUser(user.id, evt.args.join(' '))
+          await blacklistUser(user.id, evt.args.join(' '))
           sendToUser(user.id, blacklisted(evt.args.join(' ')))
           reply(cursive('User blocked;'))
         }

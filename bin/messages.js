@@ -47,6 +47,69 @@ export const configSet = (name, val) =>
 export const cursive = (msg) =>
   htmlMessage('<i>' + msg + '</i>')
 
+export const inline_keyboard= (msg,kbd) =>{
+  var keyboard={
+    "inline_keyboard": [
+        [
+            {"text": "Yes", "url": "http://www.google.com/"},
+            {"text": "No", "url": "http://www.google.com/"}
+        ]
+    ]
+  };
+  if(typeof msg=='object'){
+    msg.options.reply_markup=JSON.stringify(keyboard);
+    return msg;
+  }else{
+    return {
+      type: 'message',
+      text: msg,
+      options: {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard)
+      }
+    }
+
+  }
+}
+export const keyboard= (msg,kbd) =>{
+  var keyboard={
+    "keyboard": kbd,
+    resize_keyboard:true
+  };
+  if(typeof msg=='object'){
+    msg.options.reply_markup=JSON.stringify(keyboard);
+    return msg;
+  }else{
+    return {
+      type: 'message',
+      text: msg,
+      options: {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard)
+      }
+    }
+
+  }
+}
+export const remove_keyboard=(msg) =>{
+  var keyboard={remove_keyboard:true};
+  if(typeof msg=='object'){
+    msg.options.reply_markup=JSON.stringify(keyboard);
+    return msg;
+  }else{
+    return {
+      type: 'message',
+      text: msg,
+      options: {
+        parse_mode: 'HTML',
+        reply_markup: JSON.stringify(keyboard)
+      }
+    }
+
+  }
+}
+
+
 export const generateSmiley = (warnings) => {
   if (!warnings || warnings <= 0) return ':)'
   else if (warnings === 1) return ':|'

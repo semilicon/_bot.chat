@@ -7,7 +7,7 @@ import { getFromCache,getCacheGroup } from '../../cache'
 import { setMotd, setRank, getUser, getUsers, getUserByUsername, blacklistUser } from '../../db'
 import { RANKS } from '../../ranks'
 
-export default function adminCommands (user, evt, reply) {
+export default async function adminCommands (user, evt, reply) {
   const messageRepliedTo = getFromCache(evt, reply)
   const msgId = evt && evt.raw && evt.raw.reply_to_message && evt.raw.reply_to_message.message_id
 
@@ -23,7 +23,7 @@ export default function adminCommands (user, evt, reply) {
 
     case 'mod':
       if (evt.args.length !== 1) return reply(htmlMessage('<i>please specify a username, e.g.</i> /mod username'))
-      const newMod = getUserByUsername(evt.args[0])
+      const newMod = await getUserByUsername(evt.args[0])
       setRank(newMod.id, RANKS.mod)
       info('%o made %o mod', user, newMod)
       sendToUser(newMod.id,
@@ -34,7 +34,7 @@ export default function adminCommands (user, evt, reply) {
 
     case 'admin':
       if (evt.args.length !== 1) return reply(htmlMessage('<i>please specify a username, e.g.</i> /admin username'))
-      const newAdmin = getUserByUsername(evt.args[0])
+      const newAdmin = await getUserByUsername(evt.args[0])
       setRank(newAdmin.id, RANKS.admin)
       info('%o made %o admin', user, newAdmin)
       sendToUser(newAdmin.id,

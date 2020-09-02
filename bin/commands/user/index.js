@@ -8,7 +8,7 @@ import {
 import { setLeft, getUsers, getSystemConfig, setDebugMode, setKarmaMode } from '../../db'
 import { version } from '../../../package.json'
 
-export default function userCommands (user, evt, reply) {
+export default async function userCommands (user, evt, reply) {
   const isReply = evt && evt.raw && evt.raw.reply_to_message
 
   switch (evt.cmd) {
@@ -40,11 +40,11 @@ export default function userCommands (user, evt, reply) {
     case 'stop':
       if (!user || user.left) return reply(cursive(USER_NOT_IN_CHAT))
       reply(cursive('You left the chat!'))
-      setLeft(user.id, new Date().getTime())
+      await setLeft(user.id, new Date().getTime())
       break
 
     case 'users':
-      const users = getUsers()
+      const users = await getUsers()
       reply(htmlMessage(
         usersText(users)
       ))
@@ -76,25 +76,5 @@ export default function userCommands (user, evt, reply) {
       reply(configSet('debug mode', newDebugMode))
       break
 
-    case 'togglekarma':
-      const newKarmaMode = !user.hideKarma
-      setKarmaMode(evt.user, newKarmaMode)
-      reply(configSet('karma notifications', !newKarmaMode))
-      break
-
-    case 'source':
-    case 'version':
-      const tag = 'v' + version.split('-').shift()
-      reply(`secretlounge v${version} - https://github.com/6697/secretlounge`)
-      reply(`changelog: https://github.com/6697/secretlounge/releases/tag/${tag}`)
-      break
-
-    case 'changelog':
-      reply('you can see the full changelog here: https://github.com/6697/secretlounge/releases')
-      break
-
-    case 'issues':
-      reply('please report issues here: https://github.com/6697/secretlounge/issues')
-      break
   }
 }
