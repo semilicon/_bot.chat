@@ -1,7 +1,7 @@
 const msgUtil  = require(__path+'lib/messageUtil.lib.js');
 const msgs  = require(__path+'lib/messages.lib.js');
 const chLog  = require(__path+'lib/chLog.lib.js');
-const time  = require(__path+'time.js');
+const time  = require(__path+'lib/time.lib.js');
 
 
 
@@ -130,7 +130,7 @@ const space={
     } 
   },
   message:async function(user, evt, reply){
-    if(user.payresponse==1){
+    if(user.payresponse==1&&typeof evt.raw.reply_to_message!='undefined'){
       let ban_text=evt.raw.reply_to_message.text;
       
       let user2=ban_text.match(/#(\d*)/);

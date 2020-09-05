@@ -1,0 +1,10 @@
+{
+	"afterStart":"Hellow message, firstly answer the questions:",
+	"rules":"Rules...",
+	"help":"Help...",
+	"questions":{
+		"sex":"Укажите Ваш пол",
+		"age":"Укажите Ваш возраст",
+		"location":"Укажите Ваш город или пришлите геопозицию or /skip"
+	}
+}

@@ -2,7 +2,7 @@ __path=__dirname+'/bin/'; //save work directory
 PS=require(__path+"lib/promisify.lib.js");//promisify
 const cluster = require('cluster');//connect cluster
 if(cluster.isMaster){
-    const fs = require('fs');//глобальный доступ к файловой системе
+    const fs = require('fs');
     const config = require('./config.json');
     cluster.on('exit', (brokenFork, code, signal) => {
       console.log('Worker #'+brokenFork.id+' exterminated;');
