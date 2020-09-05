@@ -6,7 +6,7 @@
 var lib = {
 	afterStart:'Hellow message, firstly answer the questions:',
 	rules:'Rules...',
-	ffff:'',
+	help:'Help...',
 	questions:{
 		sex:'Укажите Ваш пол',
 		age:'Укажите Ваш возраст',

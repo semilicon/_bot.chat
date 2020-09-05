@@ -57,7 +57,12 @@ export const inline_keyboard= (msg,kbd) =>{
     ]
   };
   if(typeof msg=='object'){
-    msg.options.reply_markup=JSON.stringify(keyboard);
+    if(!msg.options.reply_markup)msg.options.reply_markup=JSON.stringify(keyboard);
+    else{
+      let reply_markup=JSON.parse(msg.options.reply_markup);
+      reply_markup.inline_keyboard=keyboard.inline_keyboard;
+      msg.options.reply_markup=JSON.stringify(reply_markup);
+    }
     return msg;
   }else{
     return {

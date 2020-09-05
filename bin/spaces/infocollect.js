@@ -1,4 +1,5 @@
 const icLib  = require('./lib/infocollect.lib.js');
+const msgUtil  = require(__path+'lib/messageUtil.lib.js');
 const msgs  = require(__path+'lib/messages.lib.js');
 
 const space={

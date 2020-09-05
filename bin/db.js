@@ -48,7 +48,6 @@ export const getUserByUsername = async (username) => {
   return item;
 }
 export const addUser = async (id,evt) => {
-  //await clickhouse.query('INSERT INTO users (btoken, id, date, username,realname) VALUES ('+btoken+','+id+',now(),\''+getUsernameFromEvent(evt)+'\',\''+getRealnameFromEvent(evt)+'\');').toPromise();
   (await DB.query({text:'INSERT INTO users(btoken, id, date, username,realname) VALUES($1, $2, $3, $4, $5)',values: [btoken, id, Date.now(), getUsernameFromEvent(evt), getRealnameFromEvent(evt)]}));
   return await getUser(id);
 }
@@ -131,7 +130,7 @@ export const banUser = async(id, ms) => {
 }
 
 
-export const isActive = (user) => user && !user.left
+export const isActive = (user) => user && user.left<1
 
 export const setRank = async(id, rank) =>{
   (await DB.query('UPDATE users SET rank = \''+rank+'\' WHERE btoken='+btoken+' AND id = \''+id+'\';'));

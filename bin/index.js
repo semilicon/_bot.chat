@@ -9,25 +9,13 @@ global.config=config;
 global.btoken=Number(config.token.split(':')[0]);
 import { connect } from 'coffea'
 
-const { ClickHouse } = require('clickhouse');
+
 const include = require(__path+'lib/include.lib.js');
 const msgs  = require(__path+'lib/messages.lib.js');
 const icLib  = require(__path+'spaces/lib/infocollect.lib.js');
-global.clickhouse = new ClickHouse({
-  debug: false,
-  basicAuth: {
-      username: config.clickhouse['bot_chat'].user,
-      password: config.clickhouse['bot_chat'].password,
-  },
-  isUseGzip: false,
-  format: "json",
-  config: {
-      session_timeout                         : 0,
-      output_format_json_quote_64bit_integers : 0,
-      enable_http_compression                 : 0,
-      database                                : 'bot_chat',
-  }
-});
+const chLog  = require(__path+'lib/chLog.lib.js');
+const globalCommands  = require(__path+'globalCommands.js');
+
 global.pgToolsLib=require(__path+"lib/dbtools.postgresql.lib.js");
 global.DB=pgToolsLib.newPostgresPool('bot_chat');
 const startDB=async function(callback){
@@ -51,7 +39,6 @@ import {
   getUser, getUsers, setRank, isActive, addUser, rejoinUser, updateUser, delUser,
   getSystemConfig, rmWarning, addKarma, karmaOptedOut
 } from './db'
-import commands from './commands'
 
 const spaces  = include.actionsTree(__path+'spaces');
 import { HOURS } from './time'
@@ -85,7 +72,52 @@ const parseEvent = (rawEvent) => {
 const isForwarded = (evt) =>
     evt && evt.raw && (evt.raw.forward_from || evt.raw.forward_from_chat)
 
-export const sendTo = (users, rawEvent, alwaysSend = false) => {
+global.updateMessage=async (msg,evt)=>{
+  try{
+    var msgNew= await networks.send({
+      type: (msg.text)?'editMessageText':'editMessageReplyMarkup',
+      text: msg.text,
+      options:{
+        chat_id:evt.user,
+        message_id:evt.raw.message.message_id,
+        reply_markup: msg.options.reply_markup
+      }
+    })
+  }catch(err){
+    console.log('Error:',err);
+  }
+};
+global.sendMessage=async (user_id,evt) =>{
+  evt = parseEvent(evt);
+  if(typeof user_id=='object'){
+    var result={};
+    for(let i in user_id){
+      result[user_id[i]]=await sendMessage(user_id[i],evt);
+    }
+    return result;
+  }else{
+    let promises
+    if (isForwarded(evt)) {
+      promises = networks.send({
+        type: 'forwardMessage',
+        chat: user_id,
+        fromChatId: evt.chat,
+        messageId: evt && evt.raw && evt.raw.message_id
+      })
+    } else {
+      promises = networks.send({
+        ...evt,
+        chat: user_id,
+        options: {
+          ...evt.options,
+          caption: evt.raw && evt.raw.caption
+        }
+      })
+    }
+    return await promises[0];
+  }
+}
+global.sendTo = (users, rawEvent, alwaysSend = false) => {
   const evt = parseEvent(rawEvent)
   const cacheId = createCacheGroup()
   let replyCache
@@ -102,7 +134,7 @@ export const sendTo = (users, rawEvent, alwaysSend = false) => {
       if (evt && evt.raw && evt.raw.message_id && user.id === evt.user) {
         setCache(evt.raw.message_id, cacheId, evt.user, user.id)
       }
-      if (alwaysSend || user.debug || user.id !== evt.user) { // don't relay back to sender
+      if (alwaysSend || user.id !== evt.user) { // don't relay back to sender
         if (isForwarded(evt)) {
           promises = networks.send({
             type: 'forwardMessage',
@@ -175,70 +207,22 @@ export const sendToAdmins = async (rawEvent) =>
 
 const relay = (type) => {
   networks.on(type, async (evt, reply) => {
+    var reply2=async function(msg){msg=await getKeyboard(msg,user);reply(msg);}
     
     var user = await getUser(evt.user)
     if (user && user.rank < 0) return reply(cursive(blacklisted(user && user.reason)))
-    let ldat={
-      btoken:btoken,
-      date:evt.raw.date,
-      type:type,
-      user_id:evt.user,
-      message_id:evt.raw.message_id,
-      text:(evt.text)?evt.text:''
-    }
-    switch(type){
-      case 'message':break;
-      case 'audio':
-        ldat.file_title=evt.data.title;
-        ldat.file_performer=evt.data.performer;
-        ldat.file_id=evt.data.file_id;
-        ldat.file_unique_id=evt.data.file_unique_id;
-      break;
-      case 'document':
-        ldat.file_name=evt.data.file_name;
-        ldat.file_id=evt.data.file_id;
-        ldat.file_unique_id=evt.data.file_unique_id;
-      break;
-      case 'photo':
-        let bigPhoto={file_size:0};
-        for(let key in evt.data){
-          let photo=evt.data[key];
-          if(photo.file_size>bigPhoto.file_size)bigPhoto=photo;
-        }
-        if(bigPhoto.file_size>0){
-          ldat.file_id=bigPhoto.file_id;
-          ldat.file_unique_id=bigPhoto.file_unique_id;
-        }
-      break;
-      case 'sticker':
-        ldat.set_name=evt.data.set_name;
-        ldat.emoji=evt.data.emoji;
-        ldat.file_id=evt.data.file_id;
-        ldat.file_unique_id=evt.data.file_unique_id;
-      break;
-      case 'video':
-      case 'voice':
-        ldat.file_id=evt.data.file_id;
-        ldat.file_unique_id=evt.data.file_unique_id;
-      break;
-    }
-    let ldatkeys=[];
-    for(let key in ldat){
-      ldatkeys.push(key)
-    }
-    
-    
     if (type !== 'message' || (evt && evt.text && evt.text.charAt(0) !== '/')) { // don't parse commands again
-      await clickhouse.insert('INSERT INTO messages_log ('+ldatkeys.join(',')+')',ldat).toPromise();
+      //chLog.message(evt,type);
+      
       if (!isActive(user)) { // make sure user is in the group chat
         return reply(cursive(USER_NOT_IN_CHAT))
       }else if (user && user.banned >= Date.now()) {
         return reply(cursive(USER_BANNED_FROM_CHAT + ' ' + stringifyTimestamp(user.banned)))
       }else if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
-        return spaces[user.space].message(user, evt, function(msg){msg=getKeyboard(msg,user);reply(msg);});
+        return spaces[user.space].message(user, evt,reply2);
       }
       
-      sendToAll(evt)
+      //sendToAll(evt)
     }
   })
 }
@@ -340,7 +324,16 @@ export const getKeyboard=async (msg,user) =>{
   }
   if(typeof msg=='object'){
     if(!msg.options)msg.options={};
-    msg.options.reply_markup=JSON.stringify(keyboard);
+    if(typeof msg.options.reply_markup=="undefined")msg.options.reply_markup=JSON.stringify(keyboard);
+    else if(typeof msg.options.reply_markup=="object"){
+      if(keyboard.remove_keyboard)msg.options.reply_markup.remove_keyboard=keyboard.remove_keyboard;
+      else msg.options.reply_markup.keyboard=keyboard.keyboard;
+    }else if(typeof msg.options.reply_markup=="string"){
+      let reply_markup=JSON.parse(msg.options.reply_markup);
+      if(keyboard.remove_keyboard)reply_markup.remove_keyboard=keyboard.remove_keyboard;
+      else reply_markup.keyboard=keyboard.keyboard;
+      msg.options.reply_markup=JSON.stringify(reply_markup);
+    }
     return msg;
   }else if(typeof msg=='string'){
     return {
@@ -357,31 +350,53 @@ var networks=null;
 startDB(function(){
   networks = connect(config);
   ['message', 'audio', 'document', 'photo', 'sticker', 'video', 'voice','location'].map(relay);
-
+  networks.on('callback_query', async (evt) => {
+    var user = await getUser(evt.user)
+    console.log(evt)
+    try{
+      var data = JSON.parse(evt.raw.data);
+      //console.log(data);
+      var actions=data.action.split('/');
+      let space=actions[0];
+      actions.shift();
+      data.action=actions;
+      if(typeof spaces[space]!='undefined' && typeof spaces[space].callback=="function"){
+        return spaces[space].callback(user, data, evt);
+      }else{
+        console.log("Error: wrong callback space.");
+      }
+    }catch(err){
+      console.log("Error: json error in data.",err)
+    }
+    
+  });
   networks.on('command', async (evt, reply) => {
-    //log('received command event: %o', evt)
-    await clickhouse.insert('INSERT INTO commands_log (btoken, date, user_id,message_id,cmd,args)',{btoken:btoken,date:evt.raw.date,user_id:evt.user,message_id:evt.raw.message_id,cmd:evt.cmd,args:evt.args}).toPromise();
+    var reply2=async function(msg){msg=await getKeyboard(msg,user);reply(msg);}
+    chLog.command(evt);
     var user = await getUser(evt.user)
     if (evt && evt.cmd) evt.cmd = evt.cmd.toLowerCase()
     if (user && user.rank < 0) return reply(cursive(blacklisted(user && user.reason)))
     if (evt && evt.cmd === 'start') {
       if (isActive(user)){
         reply(cursive('Ты уже в чате'))
-        if(user.space=='infocollect') await icLib.sendCurrentQuestion(async function(msg){msg=await getKeyboard(msg,user);reply(msg);}, user);
+        if(user.space=='infocollect') await icLib.sendCurrentQuestion(reply2, user);
         return;
       }
       else if (!user) await addUser(evt.user,evt)
       else await rejoinUser(evt.user)
-  
+      
       reply(cursive(msgs.afterStart));
       if(!user)user = await getUser(evt.user);
-      if(user.space=='infocollect') await icLib.sendCurrentQuestion(async function(msg){msg=await getKeyboard(msg,user);reply(msg);}, user);
+      if(user.space=='infocollect') await icLib.sendCurrentQuestion(reply2, user);
       return;
     }
-    if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
-      return spaces[user.space].command(user, evt, function(msg){msg=getKeyboard(msg,user);reply(msg);});
-    }else{
-      commands(user, evt, reply)
+    
+    if(user.space!='infocollect'&& typeof globalCommands[evt.cmd]=="function"){
+      return globalCommands[evt.cmd](user, evt, reply2);
+    }else if(user && user.banned >= Date.now()){
+      return reply(cursive(USER_BANNED_FROM_CHAT + ' ' + stringifyTimestamp(user.banned)))
+    }else if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
+      return spaces[user.space].command(user, evt, reply2);
     }
 
   })
