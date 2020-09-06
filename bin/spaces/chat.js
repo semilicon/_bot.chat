@@ -14,13 +14,13 @@ const space={
           case 'search':
             (await DB.query('UPDATE users SET status = 2 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
             (await DB.query({text:'INSERT INTO searching_list (btoken,user_id) VALUES($1, $2)',values: [btoken, user.id]}));
-            return reply('Поиск собеседника');
+            return reply(msgs[user.lang].chat.unactive.press_search);
           break;
           case 'next':
-            return reply('Вы ещё не нашли собеседника, для проска нажмите /search');
+            return reply(msgs[user.lang].chat.unactive.press_next);
           break;
           case 'stop':
-            return reply('Вы ещё не начали поиск собеседника, нечего останавливать');
+            return reply(msgs[user.lang].chat.unactive.press_stop);
             
         }
 			break;
@@ -33,10 +33,11 @@ const space={
               (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               var user2=(user.id==item.user_1)?item.user_2:item.user_1;
               (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user2+'\';'));
-              await sendMessage(user2,msgUtil.inline_keyboard('Собеседник завершил беседу\n/search - искать нового собеседника',(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
+              await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
             }
             (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
-            return reply(msgUtil.inline_keyboard('Чат завершён + report message1',(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user2+'","rt":1,"cid":'+user.current_chat+'}',"hide":false}]]:[]));
+            return reply(msgUtil.inline_keyboard(msgs[user.lang].chat.active.press_stop,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user2+'","rt":1,"cid":'+user.current_chat+'}',"hide":false}]]:[]));
           break;
           case 'next':
             if(user.current_chat>0){
@@ -45,26 +46,27 @@ const space={
               (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               var user2=(user.id==item.user_1)?item.user_2:item.user_1;
               (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user2+'\';'));
-              await sendMessage(user2,msgUtil.inline_keyboard('Собеседник завершил беседу\n/search - искать нового собеседника',(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
+              await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
             }
             (await DB.query('UPDATE users SET status = 2,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
             (await DB.query({text:'INSERT INTO searching_list (btoken,user_id) VALUES($1, $2)',values: [btoken, user.id]}));
-            reply(msgUtil.inline_keyboard('Чат завершён + report message2',(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user2+'","rt":2,"cid":'+user.current_chat+'}',"hide":false}]]:[]));
-            //return reply('Поиск собеседника');
+            reply(msgUtil.inline_keyboard(msgs[user.lang].chat.active.press_next,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user2+'","rt":2,"cid":'+user.current_chat+'}',"hide":false}]]:[]));
+            
             return;
           break;
           case 'search':
             if(user.current_chat==0){
               (await DB.query('UPDATE users SET status = 2,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
               (await DB.query({text:'INSERT INTO searching_list (btoken,user_id) VALUES($1, $2)',values: [btoken, user.id]}));
-              return reply('Поиск собеседника');
+              return reply(msgs[user.lang].chat.unactive.press_search);
             }
-            return reply('Вы уже нашли собеседника. Если хотите завершить общение /stop или найти другого /next');
+            return reply(msgs[user.lang].chat.active.press_search);
           break;
           case 'sharelink':
             let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
             var user2=(user.id==item.user_1)?item.user_2:item.user_1;
-            let output=await sendMessage(user2,msgUtil.htmlMessage('Напиши мне: <a href="tg://user?id='+user.id+'">'+user.realname+'</a>'));
+            let output=await sendMessage(user2,msgUtil.htmlMessage(msgs[user.lang].chat.active.press_sharelink+': <a href="tg://user?id='+user.id+'">'+user.realname+'</a>'));
             evt.text='/sharelink';
             chLog.message(evt,user.current_chat,output.message_id);
           break;
@@ -75,13 +77,13 @@ const space={
           case 'stop':
             (await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND user_id = \''+user.id+'\';'));
             (await DB.query('UPDATE users SET status = 0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
-            return reply('Поиск остановлен');
+            return reply(msgs[user.lang].chat.searching.press_stop);
           break;
           case 'next':
-            return reply('Вы ещё не нашли собеседника, поиск продожается');
+            return reply(msgs[user.lang].chat.searching.press_next);
           break;
           case 'search':
-            return reply('Вы уже в поиске собеседника');
+            return reply(msgs[user.lang].chat.searching.press_search);
           break;
         }
       break;
@@ -97,34 +99,40 @@ const space={
           if(data.type==0){
               let text='';
               switch(data.rt){
-                case 1:
-                  text='Чат завершён \n/search - искать нового собеседника';
-                break;
                 case 2:
-                  text='Чат завершён + report message2';
+                  text=msgs[user.lang].chat.active.press_next;
                 break;
                 case 3:
-                  text='Собеседник завершил беседу\n/search - искать нового собеседника';
+                  text=msgs[user.lang].chat.active.companion_response;
+                break;
+                case 1:
+                default:
+                  text=msgs[user.lang].chat.active.press_stop;
                 break;
               }
               updateMessage(msgUtil.inline_keyboard(text,[[{"text":"report","callback_data":'{"action":"chat/report/'+data.uid+'","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}]]),evt)
           }else{
-            updateMessage(msgUtil.inline_keyboard('Спасибо за отзыв',[]),evt);
+            updateMessage(msgUtil.inline_keyboard(msgs[user.lang].chat.report.finish,[]),evt);
             chLog.report(data.uid,data.type,data.cid);
-            let user=(await DB.query('SELECT * FROM users WHERE btoken='+btoken+' AND id = \''+data.uid+'\';')).rows[0];
-            user.reports++;
-            if(Math.floor(user.reports/10)>0&&(user.reports % 10==0)){
+            let user2=(await DB.query('SELECT * FROM users WHERE btoken='+btoken+' AND id = \''+data.uid+'\';')).rows[0];
+            user2.reports++;
+            if(Math.floor(user2.reports/10)>0&&(user2.reports % 10==0)){
               //time
-              let cooldownTime = Math.floor(user.reports/10) * time.DAYS;
-              (await DB.query('UPDATE users SET status = 0,current_chat=0,reports = reports+1,banned = \''+(Date.now() + cooldownTime)+'\' WHERE btoken='+btoken+' AND id = \''+data.uid+'\';'));
-              (await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND user_id = \''+data.uid+'\';'));
-              await sendMessage(data.uid,'Вы заблокированы по причине избыточного количества жалоб на вас, сроком: '+time.formatTime(cooldownTime,user));
+              let cooldownTime = Math.floor(user2.reports/10) * time.DAYS;
+              (await DB.query('UPDATE users SET status = 0,current_chat=0,reports = reports+1,banned = \''+(Date.now()+cooldownTime)+'\' WHERE btoken='+btoken+' AND id = \''+user2.id+'\';'));
+              (await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND user_id = \''+user2.id+'\';'));
+              await sendMessage(user2.id,msgs[user2.lang].chat.report.user_blocked_message+time.formatDateTime(Date.now()+cooldownTime));
             }else{
-              (await DB.query('UPDATE users SET reports = reports+1 WHERE btoken='+btoken+' AND id = \''+data.uid+'\';'));
+              (await DB.query('UPDATE users SET reports = reports+1 WHERE btoken='+btoken+' AND id = \''+user2.id+'\';'));
             }
           }
         }else{
-          updateMessage(msgUtil.inline_keyboard('Выберите причину жалобы:',[[{"text":"Реклама","callback_data":'{"action":"chat/report/'+data.uid+'/1","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}],[{"text":"Детская порнография","callback_data":'{"action":"chat/report/'+data.uid+'/2","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}],[{"text":"Отмена","callback_data":'{"action":"chat/report/'+data.uid+'/0","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}]]),evt)
+          let reasons=[];
+          reasons.push([{"text":msgs[user.lang].chat.report.report_abort,"callback_data":'{"action":"chat/report/'+data.uid+'/0","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}]);
+          for(let i in msgs[user.lang].chat.report.reasons){
+            reasons.push([{"text":msgs[user.lang].chat.report.reasons[i],"callback_data":'{"action":"chat/report/'+data.uid+'/'+i+'","rt":'+data.rt+',"cid":'+data.cid+'}',"hide":false}]);
+          }
+          updateMessage(msgUtil.inline_keyboard(msgs[user.lang].chat.report.reason_report,reasons),evt)
         }
 			break;
     } 
@@ -135,12 +143,13 @@ const space={
       
       let user2=ban_text.match(/#(\d*)/);
       if(typeof user2[1]!="undefined"){
-        await sendMessage(user2[1],msgUtil.htmlMessage('<b>Сообщение от администратора:</b>\n\n'+evt.raw.text+'\n\n------\nДля ответа используйте команду\n/pay <i>сообщение</i>'));
+        let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2[1]+'\';')).rows[0];
+        await sendMessage(u2.id,msgUtil.htmlMessage('<b>'+msgs[u2.lang].chat.message.message_from_admin+'</b>\n\n'+evt.raw.text+'\n\n'+msgs[u2.lang].chat.message.message_from_admin_comment+''));
       }
     }else{
       switch(user.status){
         case 0:
-          return reply('Вы пока не нашли собеседника\n/search - найти собеседника');
+          return reply(msgs[user.lang].chat.message.unactive_companion_not_found);
         break;
         case 1:
           let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
@@ -149,7 +158,7 @@ const space={
           chLog.message(evt,user.current_chat,output.message_id);
         break;
         case 2:
-          return reply('Вы пока не нашли собеседника');
+          return reply(msgs[user.lang].chat.message.searching_companion_not_found);
         break;
       } 
     }    
@@ -170,7 +179,10 @@ const space={
         (await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND (user_id = \''+group.one+'\' OR user_id = \''+group.two+'\');'));
         (await DB.query('UPDATE users SET status = 1,current_chat='+id+' WHERE btoken='+btoken+' AND (id = \''+group.one+'\' OR id = \''+group.two+'\');'));
         //let users=(await DB.query('SELECT * FROM users WHERE btoken='+btoken+' AND (id = \''+group.one+'\' OR id = \''+group.two+'\');')).rows;
-        await sendMessage([group.one,group.two],msgUtil.htmlMessage('Собеседник найден\n/next - искать нового собеседника\n/stop - закончить диалог'));
+        let u1=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+group.one+'\';')).rows[0];
+        let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+group.two+'\';')).rows[0];
+        await sendMessage(u1.id,msgUtil.htmlMessage(msgs[u1.lang].chat.companion_found));
+        await sendMessage(u2.id,msgUtil.htmlMessage(msgs[u2.lang].chat.companion_found));
         group.one=0;
         group.two=0;
       }

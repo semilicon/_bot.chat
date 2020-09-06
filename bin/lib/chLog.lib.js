@@ -70,7 +70,6 @@ var lib = {
 		for(let key in ldat){
 		ldatkeys.push(key)
 		}
-		console.log(ldat);
 		await clickhouse.insert('INSERT INTO messages_log ('+ldatkeys.join(',')+')',ldat).toPromise();
 	},
 	command:async (evt) => {
@@ -80,7 +79,6 @@ var lib = {
 		await clickhouse.insert('INSERT INTO chat_log (btoken, id, date_start,date_end,user_1,user_2)',{btoken:btoken,id:id,date_start:date_start,date_end:Date.now(),user_1:user_1,user_2:user_2}).toPromise();
 	},
 	report:async (user_id,report_type,chat_id) => {
-		console.log({btoken:btoken,user_id:user_id,date:Date.now(),report_type:report_type,chat_id:chat_id})
 		await clickhouse.insert('INSERT INTO reports (btoken, user_id, date,report_type,chat_id)',{btoken:btoken,user_id:user_id,date:Math.floor(Date.now()/1000),report_type:report_type,chat_id:chat_id}).toPromise();
 	},
 };

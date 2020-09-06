@@ -11,14 +11,14 @@ const space={
 			case 1:
 				switch (evt.cmd) {
           default:
-            reply(`Сперва ответте на вопрос`)
+            reply(msgs[user.lang].infocollect.demand_answer)
             return await icLib.sendCurrentQuestion(reply, user);
         }
 			break;
 			case 2:
 				switch (evt.cmd) {
           default:
-            reply(`Сперва ответте на вопрос`)
+            reply(msgs[user.lang].infocollect.demand_answer)
             return await icLib.sendCurrentQuestion(reply, user);
         }
 			break;
@@ -29,7 +29,7 @@ const space={
             return await icLib.sendCurrentQuestion(reply, user);
           break;
           default:
-            reply(`Сперва ответте на вопрос`)
+            reply(msgs[user.lang].infocollect.demand_answer)
             return await icLib.sendCurrentQuestion(reply, user);
         }
       break;
@@ -46,12 +46,12 @@ const space={
       case 0:
 			case 1:
 				evt.text=evt.text.trim().toLowerCase();
-        if(evt.text=='male'||evt.text=='men'||evt.text=='муж'||evt.text=='мужчина'||evt.text=='мужской'||evt.text=='мужской'||evt.text=='парень'){
+        if(msgs[user.lang].infocollect.questions.sex.variables[0].toLowerCase()==evt.text||evt.text=='male'||evt.text=='men'||evt.text=='муж'||evt.text=='мужчина'||evt.text=='парень'){
           var gender=1;
-        }else if(evt.text=='female'||evt.text=='women'||evt.text=='жен'||evt.text=='женщина'||evt.text=='женский'||evt.text=='девушка'){
+        }else if(msgs[user.lang].infocollect.questions.sex.variables[1].toLowerCase()==evt.text||evt.text=='female'||evt.text=='women'||evt.text=='жен'||evt.text=='женщина'||evt.text=='женский'||evt.text=='девушка'){
           var gender=2;
         }else{
-          return reply('Введите корректный пол');
+          return reply(msgs[user.lang].infocollect.questions.sex.mistake);
         }
         (await DB.query('UPDATE users_info SET gender ='+gender+',step_position=2 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
         user.step_position=2;
@@ -87,7 +87,7 @@ const space={
               age_group=4;
             break;
             default:
-              return reply('Введите корректный возраст или диапазон');
+              return reply(msgs[user.lang].infocollect.questions.age.mistake);
           }
           (await DB.query('UPDATE users_info SET age_group ='+age_group+',step_position=3 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
           user.step_position=3;
@@ -97,14 +97,14 @@ const space={
 				if(evt.type=='location'){
           (await DB.query('UPDATE users_info SET location =\''+JSON.stringify(evt.data)+'\',step_position=4 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
           user.step_position=4;
-        }else if(typeof evt.text!='undefined'&&evt.text.trim().toLowerCase()=='skip'){
+        }else if(typeof evt.text!='undefined'&&evt.text.trim().toLowerCase()=='skip'||evt.text.trim().toLowerCase()==msgs[user.lang].infocollect.questions.location.skip.toLowerCase()){
           (await DB.query('UPDATE users_info SET location =\'\',step_position=4 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
           user.step_position=4;
         }else if(typeof evt.text!='undefined'&&evt.text!=''){
           (await DB.query('UPDATE users_info SET location =\''+evt.text.trim()+'\',step_position=4 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
           user.step_position=4;
         }else{
-          return reply('Введите корректный город');
+          return reply(msgs[user.lang].infocollect.questions.location.mistake);
         }
 			break;
       case 4:

@@ -4,11 +4,13 @@ const coffea= require('coffea');
 
 const include = require(__path+'lib/include.lib.js');
 const msgs  = require(__path+'lib/messages.lib.js');
-const msgUtil  = require(__path+'lib/messageUtil.lib.js');
+//const msgUtil  = require(__path+'lib/messageUtil.lib.js');
 const userLib  = require(__path+'lib/user.lib.js');
 const icLib  = require(__path+'spaces/lib/infocollect.lib.js');
 const chLog  = require(__path+'lib/chLog.lib.js');
 const globalCommands  = require(__path+'globalCommands.js');
+const time  = require(__path+'lib/time.lib.js');
+
 
 global.pgToolsLib=require(__path+"lib/dbtools.postgresql.lib.js");
 global.DB=pgToolsLib.newPostgresPool('bot_chat');
@@ -16,10 +18,6 @@ const startDB=async function(callback){
   (await PS(pgToolsLib,pgToolsLib.postgresConnect)(DB));
   if(typeof callback!="undefined")callback();
 }
-import {
-  stringifyTimestamp, blacklisted,
-  USER_NOT_IN_CHAT, USER_BANNED_FROM_CHAT
-} from './messages'
 
 const spaces  = include.actionsTree(__path+'spaces');
 
@@ -84,13 +82,13 @@ const relay = (type) => {
     
     var user = await userLib.getUser(evt.user);
     if (user && typeof msgs[user.lang]=='undefined')user.lang='ru';
-    if (user && user.rank < 0) return reply(blacklisted(user && user.reason))
+    if (user && user.rank < 0) return reply(msgs[user.lang].common.blacklisted)
     if (type !== 'message' || (evt && evt.text && evt.text.charAt(0) !== '/')) { // don't parse commands again
       
       if (!userLib.isActive(user)) { // make sure user is in the group chat
-        return reply(USER_NOT_IN_CHAT)
+        return reply(msgs[user.lang].common.user_not_in_chat)
       }else if (user && user.banned >= Date.now()) {
-        return reply(USER_BANNED_FROM_CHAT + ' ' + stringifyTimestamp(user.banned))
+        return reply(msgs[user.lang].common.user_banned_from_chat + ' ' + time.formatDateTime(user.banned))
       }else if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
         return spaces[user.space].message(user, evt,reply2);
       }
@@ -131,10 +129,10 @@ startDB(function(){
     var user = await userLib.getUser(evt.user);
     if (user && typeof msgs[user.lang]=='undefined')user.lang='ru';
     if (evt && evt.cmd) evt.cmd = evt.cmd.toLowerCase()
-    if (user && user.rank < 0) return reply(blacklisted(user && user.reason))
+    if (user && user.rank < 0) return reply(msgs[user.lang].common.blacklisted)
     if (evt && evt.cmd === 'start') {
       if (userLib.isActive(user)){
-        reply('Ты уже в чате')
+        reply(msgs[user.lang].common.you_already_in_bot)
         if(user.space=='infocollect') await icLib.sendCurrentQuestion(reply2, user);
         return;
       }
@@ -151,7 +149,7 @@ startDB(function(){
     if(user.space!='infocollect'&& typeof globalCommands[evt.cmd]=="function"){
       return globalCommands[evt.cmd](user, evt, reply2);
     }else if(user && user.banned >= Date.now()){
-      return reply(USER_BANNED_FROM_CHAT + ' ' + stringifyTimestamp(user.banned))
+      return reply(msgs[user.lang].common.user_banned_from_chat + ' ' + time.formatDateTime(user.banned))
     }else if(typeof spaces[user.space]!='undefined' && typeof spaces[user.space].command=="function"){
       return spaces[user.space].command(user, evt, reply2);
     }

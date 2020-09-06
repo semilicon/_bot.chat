@@ -104,7 +104,7 @@ var lib = {
 			return await lib.updateUser(user.id, {
 			  username: evt.raw.from.username,
 			  realname: lib.getRealnameFromEvent(evt),
-			  lang: (evt.raw.from.language_code && typeof msgs[evt.raw.from.language_code]!='undefined')?evt.raw.from.language_code:'en'
+			  lang: (evt.raw.from.language_code && typeof msgs[evt.raw.from.language_code]!='undefined')?evt.raw.from.language_code:'ru'
 			})
 		  }
 		}

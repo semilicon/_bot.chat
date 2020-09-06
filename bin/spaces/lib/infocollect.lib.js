@@ -15,17 +15,17 @@ var lib = {
 		switch(info.step_position){
 			case 0:
 			case 1:
-				await userLib.setKeyboard(user,[["Male","Female"]]);
-				reply(msgs[user.lang].questions.sex);
+				await userLib.setKeyboard(user,[msgs[user.lang].infocollect.questions.sex.variables]);
+				reply(msgs[user.lang].infocollect.questions.sex.title);
 			break;
 			case 2:
 				await userLib.setKeyboard(user,[["13-18","18-25"],["25-36","36+"]]);
-				reply(msgs[user.lang].questions.age);
+				reply(msgs[user.lang].infocollect.questions.age.title);
 
 			break;
 			case 3:
-				await userLib.setKeyboard(user,[[{"text":"Send location","request_location":true,"hide":false}],['skip']]);
-				reply(msgs[user.lang].questions.location);
+				await userLib.setKeyboard(user,[[{"text":msgs[user.lang].infocollect.questions.location.location_button,"request_location":true,"hide":false}],[msgs[user.lang].infocollect.questions.location.skip]]);
+				reply(msgs[user.lang].infocollect.questions.location.title);
 			break;
 			case 4:
 			default:

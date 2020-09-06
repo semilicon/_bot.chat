@@ -1,4 +1,5 @@
 __path=__dirname+'/bin/'; //save work directory
+process.env.TZ='UTC';
 PS=require(__path+"lib/promisify.lib.js");//promisify
 const cluster = require('cluster');//connect cluster
 if(cluster.isMaster){
