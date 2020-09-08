@@ -1,6 +1,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 const msgs  = require(__path+'lib/messages.lib.js');
+const msgUtil  = require(__path+'lib/messageUtil.lib.js');
+const chLog  = require(__path+'lib/chLog.lib.js');
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -104,7 +106,7 @@ var lib = {
 			return await lib.updateUser(user.id, {
 			  username: evt.raw.from.username,
 			  realname: lib.getRealnameFromEvent(evt),
-			  lang: (evt.raw.from.language_code && typeof msgs[evt.raw.from.language_code]!='undefined')?evt.raw.from.language_code:'ru'
+			  lang: (evt.raw.from.language_code && typeof msgs[evt.raw.from.language_code]!='undefined')?evt.raw.from.language_code:'en'
 			})
 		  }
 		}
@@ -113,6 +115,21 @@ var lib = {
 	setLeft: async(id, left) => {
 		(await DB.query('UPDATE users SET "left" = \''+left+'\' WHERE btoken='+btoken+' AND id = \''+id+'\';'));
 		return await lib.getUser(id);
+	},
+	blocked_by_the_user:async(id) => {
+		let chat=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND (user_1 = \''+id+'\' OR user_2 = \''+id+'\');')).rows[0];
+		if(typeof chat!='undefined'){
+			var user2=(id==chat.user_1)?chat.user_2:chat.user_1;
+			(await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND (id = \''+user2+'\' OR id = \''+id+'\');'));
+			chLog.chat(chat.id,chat.date_start,chat.user_1,chat.user_2);
+			(await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+chat.id+'\';'));
+			let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
+			try{
+                await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,[[{"text":"report","callback_data":'{"action":"chat/report/'+id+'","rt":3,"cid":'+chat.id+'}',"hide":false}]]))
+            }catch(err){}
+		}
+		(await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND user_id = \''+id+'\';'));
+		
 	}
 };
 module.exports=lib;

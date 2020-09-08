@@ -30,9 +30,7 @@
     "clickhouse": "^2.1.5",
     "coffea": "^1.0.0-beta18",
     "coffea-telegram": "^1.0.0-beta9-6",
-    "debug-dude": "^1.0.3",
     "esm": "^3.2.25",
-    "lowdb": "^0.13.1",
     "pg": "^8.3.2"
   }
 }

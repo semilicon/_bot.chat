@@ -47,8 +47,7 @@ if(cluster.isMaster){
       setInterval(binChanges, 1000);
     }
 }else if(cluster.isWorker&&process.env['role']=='telegramBot'){
-  //process.env['NODE_ENV'] = 'development';
-  //process.env['DEBUG'] = 'bot:*';
+  console.log('#telegramBot start;');
   require = require("esm")(module/*, options*/)
   process.chdir(__path);// set work directory to App directory
   require(__path+'index.js');

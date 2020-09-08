@@ -71,19 +71,19 @@ const space={
           }
           (await DB.query('UPDATE users_info SET age_group ='+age_group+',step_position=3 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
           user.step_position=3;
-        }else if(["13-18","18-25","25-36","36+"].includes(evt.text)){
+        }else if(["13-18","19-25","26-36","37+"].includes(evt.text)){
           let age_group=0;
           switch(evt.text){
             case "13-18":
               age_group=1;
             break;
-            case "18-25":
+            case "19-25":
               age_group=2;
             break;
-            case "25-36":
+            case "26-36":
               age_group=3;
             break;
-            case "36+":
+            case "37+":
               age_group=4;
             break;
             default:

@@ -1,0 +1,89 @@
+{
+	"afterStart":"Hello! Before we begin, please, answer these questions:",
+	"rules":"Rules...\n/search\n/stop\n/next\n/rules\n/help",
+	"help":"Help...",
+	"infocollect":{
+		"demand_answer":"Before we start, please, answer the questions",
+		"questions":{
+			"sex":{
+				"title":"What is your sex?",
+				"mistake":"Enter a correct sex.",
+				"variables":["Male","Female"]
+			},
+			"age":{
+				"title":"How old are you?",
+				"mistake":"Enter a correct age or a range."
+			},
+			"location":{
+				"title":"Enter your city or geolocation or /skip",
+				"mistake":"Enter a correct city",
+				"location_button":"Send geolocation",
+				"skip":"skip"
+			}
+		}
+	},
+	"chat":{
+		"unactive":{
+			"press_search":"Searching for a person",
+			"press_next":"You have not found a person yet, to start the search press /search",
+			"press_stop":"You have not started the search, there is nothing to stop"
+		},
+		"active":{
+			"press_stop":"Chat has ended + report the person",
+			"companion_response":"The person has stopped the chat \n/search - search for a new person",
+			"press_next":"Chat has ended + report the person",
+			"press_search":"You have already found a person. If you would like to end the chat /stop or find a new person /next",
+			"press_sharelink":"Message me",
+			"press_sharelink_to_myself":"You sent your contact"
+		},
+		"searching":{
+			"press_stop":"Search was stopped",
+			"press_next":"You have not found a person yet, search continues",
+			"press_search":"You are already searching"
+		},
+		"report":{
+			"finish":"Thank you for your feedback!",
+			"user_blocked_message":"You have been blocked due to an excessive number of complaints until: ",
+			"reason_report":"Select a reason for the report:",
+			"reasons":{
+				"1":"Advertising",
+				"2":"Commerce",
+				"3":"Pornography",
+				"4":"Verbal assault",
+				"5":"Threat of violence"
+			},
+			"report_abort":"← Back"
+		},
+		"message":{
+			"unactive_companion_not_found":"You have not found a person yet\n/search - find a person",
+			"searching_companion_not_found":"You have not found a person yet",
+			"message_from_admin":"Message from the administrator:",
+			"message_from_admin_comment":"------\nTo answer use the command\n/pay <i>message</i>"
+		},
+		"companion_found":"Person is found\n/next - search for a new person\n/stop - end dialogue"
+	},
+	"globalCommands":{
+		"profile":{
+			"your":"Your profile",
+			"gender":"Sex",
+			"age":"Age",
+			"city":"City",
+			"indefined":"Unspecified",
+			"location":"Geolocation"
+		},
+		"pay":{
+			"you_are_active":"<i>Your account is active</i>",
+			"pay_mistake":"Error: Enter your message after the command.\n <i>/pay Your message</i>",
+			"from_user_to_admin":"Message from a blocked user"
+		},
+		"sendtoall":{
+			"from_admin":"Message from an administrator:"
+		}
+	},
+	"common":{
+		"you_already_in_bot":"You are already in a chat.",
+		"blacklisted":"You have been added to a black list.",
+		"user_not_in_chat":"You have not activated the bot! Use </i>/start<i> to begin",
+		"user_banned_from_chat":"You are blocked until: "
+	}
+}

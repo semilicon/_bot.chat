@@ -81,7 +81,7 @@ const relay = (type) => {
     var reply2=async function(msg){msg=await userLib.getKeyboard(msg,user);reply(msg);}
     
     var user = await userLib.getUser(evt.user);
-    if (user && typeof msgs[user.lang]=='undefined')user.lang='ru';
+    if (user && typeof msgs[user.lang]=='undefined')user.lang='en';
     if (user && user.rank < 0) return reply(msgs[user.lang].common.blacklisted)
     if (type !== 'message' || (evt && evt.text && evt.text.charAt(0) !== '/')) { // don't parse commands again
       
@@ -105,7 +105,7 @@ startDB(function(){
   ['message', 'audio', 'document', 'photo', 'sticker', 'video', 'voice','location'].map(relay);
   networks.on('callback_query', async (evt) => {
     var user = await userLib.getUser(evt.user);
-    if (user && typeof msgs[user.lang]=='undefined')user.lang='ru';
+    if (user && typeof msgs[user.lang]=='undefined')user.lang='en';
     try{
       var data = JSON.parse(evt.raw.data);
       //console.log(data);
@@ -127,7 +127,7 @@ startDB(function(){
     var reply2=async function(msg){msg=await userLib.getKeyboard(msg,user);reply(msg);}
     chLog.command(evt);
     var user = await userLib.getUser(evt.user);
-    if (user && typeof msgs[user.lang]=='undefined')user.lang='ru';
+    if (user && typeof msgs[user.lang]=='undefined')user.lang='en';
     if (evt && evt.cmd) evt.cmd = evt.cmd.toLowerCase()
     if (user && user.rank < 0) return reply(msgs[user.lang].common.blacklisted)
     if (evt && evt.cmd === 'start') {
@@ -140,11 +140,12 @@ startDB(function(){
       else await userLib.rejoinUser(evt.user)
 
       if(!user)user = await userLib.getUser(evt.user);
-      if (typeof msgs[user.lang]=='undefined')user.lang='ru';
+      if (typeof msgs[user.lang]=='undefined')user.lang='en';
       reply(msgs[user.lang].afterStart);
       if(user.space=='infocollect') await icLib.sendCurrentQuestion(reply2, user);
       return;
     }
+    
     
     if(user.space!='infocollect'&& typeof globalCommands[evt.cmd]=="function"){
       return globalCommands[evt.cmd](user, evt, reply2);

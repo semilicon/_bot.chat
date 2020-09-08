@@ -2,6 +2,7 @@ const msgUtil  = require(__path+'lib/messageUtil.lib.js');
 const msgs  = require(__path+'lib/messages.lib.js');
 const chLog  = require(__path+'lib/chLog.lib.js');
 const time  = require(__path+'lib/time.lib.js');
+const userLib  = require(__path+'lib/user.lib.js');
 
 
 
@@ -29,12 +30,18 @@ const space={
           case 'stop':
             if(user.current_chat>0){
               let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
-              chLog.chat(item.id,item.date_start,item.user_1,item.user_2);
-              (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               var user2=(user.id==item.user_1)?item.user_2:item.user_1;
               (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user2+'\';'));
+              chLog.chat(item.id,item.date_start,item.user_1,item.user_2);
+              (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
-              await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              try{
+                await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              }catch(err){
+                if(err.response.body.error_code==403&&err.response.body.description.includes('blocked by the user')){
+                  userLib.blocked_by_the_user(u2.id);
+                }
+              }
             }
             (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
             return reply(msgUtil.inline_keyboard(msgs[user.lang].chat.active.press_stop,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user2+'","rt":1,"cid":'+user.current_chat+'}',"hide":false}]]:[]));
@@ -42,12 +49,18 @@ const space={
           case 'next':
             if(user.current_chat>0){
               let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
-              chLog.chat(item.id,item.date_start,item.user_1,item.user_2);
-              (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               var user2=(user.id==item.user_1)?item.user_2:item.user_1;
               (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user2+'\';'));
+              chLog.chat(item.id,item.date_start,item.user_1,item.user_2);
+              (await DB.query('DELETE FROM chat WHERE btoken='+btoken+' AND id = \''+item.id+'\';'));
               let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
-              await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              try{
+                await sendMessage(u2.id,msgUtil.inline_keyboard(msgs[u2.lang].chat.active.companion_response,(user.current_chat>0)?[[{"text":"report","callback_data":'{"action":"chat/report/'+user.id+'","rt":3,"cid":'+user.current_chat+'}',"hide":false}]]:[]))
+              }catch(err){
+                if(err.response.body.error_code==403&&err.response.body.description.includes('blocked by the user')){
+                  userLib.blocked_by_the_user(u2.id);
+                }
+              }
             }
             (await DB.query('UPDATE users SET status = 2,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
             (await DB.query({text:'INSERT INTO searching_list (btoken,user_id) VALUES($1, $2)',values: [btoken, user.id]}));
@@ -66,9 +79,18 @@ const space={
           case 'sharelink':
             let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
             var user2=(user.id==item.user_1)?item.user_2:item.user_1;
-            let output=await sendMessage(user2,msgUtil.htmlMessage(msgs[user.lang].chat.active.press_sharelink+': <a href="tg://user?id='+user.id+'">'+user.realname+'</a>'));
+            let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2+'\';')).rows[0];
+            try{
+              var output=await sendMessage(u2.id,msgUtil.htmlMessage(msgs[u2.lang].chat.active.press_sharelink+': <a href="tg://user?id='+user.id+'">'+user.realname+'</a>'));
+            }catch(err){
+              if(err.response.body.error_code==403&&err.response.body.description.includes('blocked by the user')){
+                userLib.blocked_by_the_user(u2.id);
+              }
+            }
+            
             evt.text='/sharelink';
             chLog.message(evt,user.current_chat,output.message_id);
+            await sendMessage(user.id,msgUtil.htmlMessage(msgs[user.lang].chat.active.press_sharelink_to_myself+': <a href="tg://user?id='+user.id+'">'+user.realname+'</a>'));
           break;
         }
 			break;
@@ -121,7 +143,14 @@ const space={
               let cooldownTime = Math.floor(user2.reports/10) * time.DAYS;
               (await DB.query('UPDATE users SET status = 0,current_chat=0,reports = reports+1,banned = \''+(Date.now()+cooldownTime)+'\' WHERE btoken='+btoken+' AND id = \''+user2.id+'\';'));
               (await DB.query('DELETE FROM searching_list WHERE btoken='+btoken+' AND user_id = \''+user2.id+'\';'));
-              await sendMessage(user2.id,msgs[user2.lang].chat.report.user_blocked_message+time.formatDateTime(Date.now()+cooldownTime));
+              try{
+                await sendMessage(user2.id,msgs[user2.lang].chat.report.user_blocked_message+time.formatDateTime(Date.now()+cooldownTime));
+              }catch(err){
+                if(err.response.body.error_code==403&&err.response.body.description.includes('blocked by the user')){
+                  userLib.blocked_by_the_user(user2.id);
+                }
+              }
+              
             }else{
               (await DB.query('UPDATE users SET reports = reports+1 WHERE btoken='+btoken+' AND id = \''+user2.id+'\';'));
             }
@@ -138,13 +167,18 @@ const space={
     } 
   },
   message:async function(user, evt, reply){
-    if(user.payresponse==1&&typeof evt.raw.reply_to_message!='undefined'){
+    if(user.payresponse==1&&typeof evt.raw.reply_to_message!='undefined'&&evt.raw.reply_to_message.text&&evt.raw.reply_to_message.text!=''){
       let ban_text=evt.raw.reply_to_message.text;
       
       let user2=ban_text.match(/#(\d*)/);
-      if(typeof user2[1]!="undefined"){
+      if(user2 && typeof user2[1]!="undefined"){
         let u2=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND id = \''+user2[1]+'\';')).rows[0];
-        await sendMessage(u2.id,msgUtil.htmlMessage('<b>'+msgs[u2.lang].chat.message.message_from_admin+'</b>\n\n'+evt.raw.text+'\n\n'+msgs[u2.lang].chat.message.message_from_admin_comment+''));
+        try{
+          await sendMessage(u2.id,msgUtil.htmlMessage('<b>'+msgs[u2.lang].chat.message.message_from_admin+'</b>\n\n'+evt.raw.text+'\n\n'+msgs[u2.lang].chat.message.message_from_admin_comment+''));
+        }catch(err){
+          reply("Пользователь заблокирован. Нет смысла писать");
+        }
+        
       }
     }else{
       switch(user.status){
@@ -153,9 +187,19 @@ const space={
         break;
         case 1:
           let item=(await DB.query('SELECT * FROM chat WHERE btoken='+btoken+' AND id = \''+user.current_chat+'\';')).rows[0];
+          if(typeof item=="undefined"){
+            (await DB.query('UPDATE users SET status = 0,current_chat=0 WHERE btoken='+btoken+' AND id = \''+user.id+'\';'));
+            return reply(msgs[user.lang].chat.unactive.press_next);
+          }
           let user2_id=(user.id==item.user_1)?item.user_2:item.user_1;
-          let output = await sendMessage(user2_id,evt);
-          chLog.message(evt,user.current_chat,output.message_id);
+          try{
+            var output = await sendMessage(user2_id,evt);
+          }catch(err){
+            if(err.response.body.error_code==403&&err.response.body.description.includes('blocked by the user')){
+              userLib.blocked_by_the_user(user2_id);
+            }
+          }
+          if(output) chLog.message(evt,user.current_chat,output.message_id);
         break;
         case 2:
           return reply(msgs[user.lang].chat.message.searching_companion_not_found);

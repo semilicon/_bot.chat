@@ -18,13 +18,13 @@ const commands={
         text+='13-18';
       break;
       case 2:
-        text+='18-25';
+        text+='19-25';
       break;
       case 3:
-        text+='25-36';
+        text+='26-36';
       break;
       case 4:
-        text+='36+';
+        text+='37+';
       break;
     }
     text+='</b>\n';
@@ -51,7 +51,10 @@ const commands={
         let items=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND payresponse =1;')).rows;
         //let users=[];
         for(let i in items){
-          await sendMessage(items[i].id,msgUtil.htmlMessage('#'+user.id+'\n<b>'+msgs[items[i].lang].globalCommands.pay.from_user_to_admin+' <a href="tg://user?id='+user.id+'">'+user.realname+'</a></b>\n\n'+message));
+          try{
+            await sendMessage(items[i].id,msgUtil.htmlMessage('#'+user.id+'\n<b>'+msgs[items[i].lang].globalCommands.pay.from_user_to_admin+' <a href="tg://user?id='+user.id+'">'+user.realname+'</a></b>\n\n'+message));
+          }catch(err){}
+          
           //users.push(items[i].id);
         }
         
@@ -68,9 +71,24 @@ const commands={
       let items=(await DB.query('SELECT id,lang FROM users WHERE btoken='+btoken+' AND rank<100 AND banned<'+Date.now()+';')).rows;
       //let users=[];
       for(let i in items){
-        await sendMessage(items[i].id,msgUtil.htmlMessage('<b>'+msgs[items[i].lang].globalCommands.sendtoall.from_admin+'</b>\n\n'+message));
+        
+        try{
+          await sendMessage(items[i].id,msgUtil.htmlMessage('<b>'+msgs[items[i].lang].globalCommands.sendtoall.from_admin+'</b>\n\n'+message));
+        }catch(err){
+          
+        }
         //users.push(items[i].id);
       }
+      
+    }
+  },
+  users:async function(user, evt, reply){
+    if(user.rank==100){
+      let items=(await DB.query('SELECT COUNT(*) FROM users WHERE btoken='+btoken+';')).rows;
+      let items_new=(await DB.query('SELECT COUNT(*) FROM users WHERE btoken='+btoken+' AND date>'+(Date.now()-86400000)+';')).rows;
+      let items_talk=(await DB.query('SELECT COUNT(*) FROM users WHERE btoken='+btoken+' AND status=1;')).rows;
+      let items_search=(await DB.query('SELECT COUNT(*) FROM users WHERE btoken='+btoken+' AND status=2;')).rows;
+      reply("Всего пользователей: <b>"+items[0].count+"</b>\nНовых (за 24 часа): <b>"+items_new[0].count+'</b>\nСейчас общаются: <b>'+items_talk[0].count+'</b>\nСейчас в поиске: <b>'+items_search[0].count+'</b>');
       
     }
   },

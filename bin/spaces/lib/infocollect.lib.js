@@ -19,7 +19,7 @@ var lib = {
 				reply(msgs[user.lang].infocollect.questions.sex.title);
 			break;
 			case 2:
-				await userLib.setKeyboard(user,[["13-18","18-25"],["25-36","36+"]]);
+				await userLib.setKeyboard(user,[["13-18","19-25"],["26-36","37+"]]);
 				reply(msgs[user.lang].infocollect.questions.age.title);
 
 			break;
